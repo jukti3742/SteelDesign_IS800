@@ -1,5 +1,6 @@
 import math
-from section_property.utilities import z_plastic_symmetrical_i_section, class_of_section, most_critical_class
+from section_property.utilities import z_plastic_symmetrical_i_section, class_of_section, most_critical_class, \
+    buckling_class_factor
 from material import steel
 from section_property.effective_length import effective_length_bending
 from section_property.steel_table import ismb_table
@@ -77,11 +78,41 @@ class ISectionRolled:
         elif c == 0:
             return 5.35
 
-    def t_cre(self, kv):  # elastic critical shear stress, clause 8.4.2.2
+    def t_cre(self, kv):  # elastic critical shear stress, clause 8.4.2.2, Shear Check
         if kv is not None:
             u = steel.poisson_ratio_for_steel
             return kv * (math.pi ** 2) * steel.E / (
                     12 * (1 - u ** 2) * (self.d / self.all_geometrical_property['web_thk']) ** 2)
+
+    def f_cc(self, lz, ly):  # Euler's buckling stress, clause 7.1.2, Design of Compression Members
+        return math.pi * math.pi * steel.E / (lz / self.all_geometrical_property['r_zz']) ** 2, \
+               math.pi * math.pi * steel.E / (ly / self.all_geometrical_property['r_yy']) ** 2
+
+    @property
+    def a_e(self):  # effective sectional area as defined in clause 7.3.2, Design of Compression Members
+        return self.all_geometrical_property['area']
+
+    @property
+    def buckling_class_of_section(self):
+        h = self.all_geometrical_property['tot_height']
+        bf = self.all_geometrical_property['flange_width']
+        tf = self.all_geometrical_property['flange_thk']
+        if h / bf > 1.2:
+            if tf <= 40 / 1000:
+                return {'buckling_class_zz': 'a',
+                        'buckling_class_yy': 'b'}
+            elif 40 / 1000 < tf <= 100 / 1000:
+                return {'buckling_class_zz': 'b',
+                        'buckling_class_yy': 'c'}
+            else:
+                raise ValueError(f"flange thickness can not be >100, for h/bf >1.2, refer clause 7.1.2.2")
+        else:
+            if tf <= 100 / 1000:
+                return {'buckling_class_zz': 'b',
+                        'buckling_class_yy': 'c'}
+            else:
+                return {'buckling_class_zz': 'd',
+                        'buckling_class_yy': 'd'}
 
     @property
     def class_of_section(self):
@@ -166,10 +197,12 @@ available_member_class = (ISectionRolled, Angle)
 
 class DesignProperty:
 
-    def __init__(self, name, ll_t=None, lat=None, cant=None, c=0.0):
+    def __init__(self, name, ll_t=None, lat=None, cant=None, c=0.0, lz_compression=None, ly_compression=None):
         self.lat = lat
         self.cant = cant
         self.ll_t = effective_length_bending(length=ll_t, cant=self.cant)
+        self.lz_compression = lz_compression
+        self.ly_compression = ly_compression
         self.c = c
         if self.c < 0:
             raise ValueError(f"c can not be < 0. c: {self.c}")
@@ -262,9 +295,23 @@ class DesignProperty:
     def t_cre(self) -> float:
         return self.name.t_cre(kv=self.kv)
 
+    @property
+    def f_cc(self) -> dict:
+        return {'f_cc_zz': self.name.f_cc(lz=self.lz_compression, ly=self.ly_compression)[0],
+                'f_cc_yy': self.name.f_cc(lz=self.lz_compression, ly=self.ly_compression)[1]}
+
+    @property
+    def a_e(self) -> float:
+        return self.name.a_e
+
+    @property
+    def imperfection_factor(self) -> dict:
+        return {'alpha_zz': buckling_class_factor(value=self.name.buckling_class_of_section['buckling_class_zz']),
+                'alpha_yy': buckling_class_factor(value=self.name.buckling_class_of_section['buckling_class_yy'])}
+
 
 if __name__ == "__main__":
     section_name = ISectionRolled(name='ismb_100', country='indian', fy_Mpa=250)
     member_design_prop = DesignProperty(name=section_name, ll_t=7, lat=1, cant=0, c=0.0)
     print(section_name.__repr__())
-    print(member_design_prop.__repr__())
+    print(member_design_prop.f_cc)

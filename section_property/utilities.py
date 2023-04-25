@@ -25,5 +25,18 @@ def z_plastic_symmetrical_i_section(flange_width, tf, tot_height, tw):
     return zp_xx, zp_yy
 
 
+def buckling_class_factor(value):
+    if value == 'a':
+        return 0.21
+    elif value == 'b':
+        return 0.34
+    elif value == 'c':
+        return 0.49
+    elif value == 'd':
+        return 0.76
+    else:
+        raise ValueError('buckling class shall be a, b, c, or d. Refer Table 7')
+
+
 if __name__ == "__main__":
     print(most_critical_class(['plastic', 'compact']))

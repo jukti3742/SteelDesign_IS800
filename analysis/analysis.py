@@ -91,25 +91,42 @@ class ShearCheck:
 
 
 class CompressionCheck:
-    def __init__(self):
+    def __init__(self, name):
         self.Ymo = partial_safety_factors.y_m_0
-        self.a_e = None
-        self.f_cc = None
-        self.fy = None
-        self.alpha = None  # buckling class imperfection factor, clause 7.1.2.2
+        if not isinstance(name, DesignProperty):
+            raise ValueError(f"argument is not valid {DesignProperty} object: {repr(name)}")
+        self.lz = name.lz_compression
+        self.ly = name.ly_compression
+        if self.lz is None or self.ly is None or self.lz <= 0 or self.ly <= 0:
+            raise ValueError(f"lz, ly can not be {None} or 0 for class: {__class__.__name__}")
+        self.a_e = name.a_e
+        self.fy = name.fy
+
+        self.f_cc_zz = name.f_cc['f_cc_zz']
+        self.f_cc_yy = name.f_cc['f_cc_yy']
+
+        self.alpha_zz = name.imperfection_factor['alpha_zz']  # buckling class imperfection factor, clause 7.1.2.2
+        self.alpha_yy = name.imperfection_factor['alpha_yy']  # buckling class imperfection factor, clause 7.1.2.2
 
     def analysis(self):
-        nd_sr = (self.fy / self.f_cc) ** 0.5
-        o = 0.5 * (1 + self.alpha * (nd_sr - 0.2) + nd_sr ** 2)
-        f_cd = (self.fy / self.Ymo) / (o + (o ** 2 - nd_sr ** 2) ** 0.5)
-        return f_cd * self.a_e
+        nd_sr_zz = (self.fy / self.f_cc_zz) ** 0.5
+        o_zz = 0.5 * (1 + self.alpha_zz * (nd_sr_zz - 0.2) + nd_sr_zz ** 2)
+        f_cd_zz = (self.fy / self.Ymo) / (o_zz + (o_zz ** 2 - nd_sr_zz ** 2) ** 0.5)
+
+        nd_sr_yy = (self.fy / self.f_cc_yy) ** 0.5
+        o_yy = 0.5 * (1 + self.alpha_yy * (nd_sr_yy - 0.2) + nd_sr_yy ** 2)
+        f_cd_yy = (self.fy / self.Ymo) / (o_yy + (o_yy ** 2 - nd_sr_yy ** 2) ** 0.5)
+
+        return f_cd_zz * self.a_e, f_cd_yy * self.a_e
 
 
 if __name__ == "__main__":
-    section_name = ISectionRolled(name='ismb_100', country='indian', fy_Mpa=250)
-    member_design_prop = DesignProperty(name=section_name, ll_t=3, lat=0, cant=0, c=0.0)
+    section_name = ISectionRolled(name='ismb_350', country='indian', fy_Mpa=250)
+    member_design_prop = DesignProperty(name=section_name,
+                                        ll_t=3, lat=0, cant=0, c=0.0,
+                                        lz_compression=6, ly_compression=3)
+
     abc = ShearCheck(name=member_design_prop, tension_field_action=False)
     pqr = BendingCheck(name=member_design_prop)
-    print(abc.web_buckling)
-    print(abc.t_cre)
-    print(abc.analyse())
+    xyz = CompressionCheck(name=member_design_prop)
+    print(xyz.analysis())
