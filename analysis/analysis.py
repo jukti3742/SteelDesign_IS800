@@ -31,7 +31,8 @@ class BendingCheck:
         elif self.section_class == 'semi_compact':
             self.Bb = self.ze_zz / self.zp_zz
         else:
-            raise ValueError(f"can not design for slender class")
+            raise ValueError(f"can not design for slender section: {__class__.__name__}")
+
         if self.shear_lag:
             raise ValueError(f"limits for shear lag effect exceeded. clause 8.2.1.5")
         if self.web_buckling:
@@ -92,12 +93,19 @@ class ShearCheck:
 class CompressionCheck:
     def __init__(self, name):
         self.Ymo = partial_safety_factors.y_m_0
+
         if not isinstance(name, DesignProperty):
             raise ValueError(f"argument is not valid {DesignProperty} object: {repr(name)}")
+
         self.lz = name.lz_compression
         self.ly = name.ly_compression
         if self.lz is None or self.ly is None or self.lz <= 0 or self.ly <= 0:
             raise ValueError(f"lz, ly can not be {None} or 0 for class: {__class__.__name__}")
+
+        self.section_class = name.critical_class
+        if self.section_class == 'slender':
+            raise ValueError(f"can not design for slender section: {__class__.__name__}")
+
         self.a_e = name.a_e
         self.fy = name.fy
 
@@ -116,7 +124,7 @@ class CompressionCheck:
         o_yy = 0.5 * (1 + self.alpha_yy * (nd_sr_yy - 0.2) + nd_sr_yy ** 2)
         f_cd_yy = (self.fy / self.Ymo) / (o_yy + (o_yy ** 2 - nd_sr_yy ** 2) ** 0.5)
 
-        return f_cd_zz * self.a_e, f_cd_yy * self.a_e
+        return min(f_cd_zz * self.a_e, f_cd_yy * self.a_e)
 
 
 if __name__ == "__main__":
