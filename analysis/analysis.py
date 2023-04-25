@@ -1,7 +1,6 @@
-import math
 
 from section_property.member_properties import DesignProperty, ISectionRolled
-import partial_safety_factors
+from analysis import partial_safety_factors
 
 
 class BendingCheck:
@@ -108,7 +107,7 @@ class CompressionCheck:
         self.alpha_zz = name.imperfection_factor['alpha_zz']  # buckling class imperfection factor, clause 7.1.2.2
         self.alpha_yy = name.imperfection_factor['alpha_yy']  # buckling class imperfection factor, clause 7.1.2.2
 
-    def analysis(self):
+    def analyse(self):
         nd_sr_zz = (self.fy / self.f_cc_zz) ** 0.5
         o_zz = 0.5 * (1 + self.alpha_zz * (nd_sr_zz - 0.2) + nd_sr_zz ** 2)
         f_cd_zz = (self.fy / self.Ymo) / (o_zz + (o_zz ** 2 - nd_sr_zz ** 2) ** 0.5)
@@ -129,4 +128,4 @@ if __name__ == "__main__":
     abc = ShearCheck(name=member_design_prop, tension_field_action=False)
     pqr = BendingCheck(name=member_design_prop)
     xyz = CompressionCheck(name=member_design_prop)
-    print(xyz.analysis())
+    print(xyz.analyse())
