@@ -90,6 +90,21 @@ class ShearCheck:
             return (self.shear_area * self.fyw / (3 ** 0.5)) / self.Ymo
 
 
+class CompressionCheck:
+    def __init__(self):
+        self.Ymo = partial_safety_factors.y_m_0
+        self.a_e = None
+        self.f_cc = None
+        self.fy = None
+        self.alpha = None  # buckling class imperfection factor, clause 7.1.2.2
+
+    def analysis(self):
+        nd_sr = (self.fy / self.f_cc) ** 0.5
+        o = 0.5 * (1 + self.alpha * (nd_sr - 0.2) + nd_sr ** 2)
+        f_cd = (self.fy / self.Ymo) / (o + (o ** 2 - nd_sr ** 2) ** 0.5)
+        return f_cd * self.a_e
+
+
 if __name__ == "__main__":
     section_name = ISectionRolled(name='ismb_100', country='indian', fy_Mpa=250)
     member_design_prop = DesignProperty(name=section_name, ll_t=3, lat=0, cant=0, c=0.0)
